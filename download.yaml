@@ -1,0 +1,145 @@
+---
+- name: Lamp
+  hosts: ubuntu
+  become: yes
+
+  tasks:
+
+
+    - name: Install prerequisites
+      apt: name={{ item }} update_cache=yes state=latest force_apt_get=yes
+      loop: [ 'aptitude' ]
+
+    - name: Install aptitude
+      apt:
+        name: aptitude
+        state: latest
+        update_cache: true
+
+    - name: Install required system packages
+      apt:
+        pkg:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - python3-pip
+          - virtualenv
+          - python3-setuptools
+        state: latest
+        update_cache: true
+    
+    - name: pip install jsondiff
+      pip:
+        name:
+          - jsondiff
+          - docker-compose
+
+#    - name: Create Folder        # USE THIS ONLY IF YOU NEED TO CREATE A FOLDER TO ADD FILES FOR NEXT STEP
+ #     command: mkdir /PATH/TO/DESIRED/FOLDER/LOCATION
+
+    - name: Copy Files From Server A to Server B
+      copy:
+       src: DOCKER COMPOSE FILE
+       dest: /PATH/TO/FOLDER/ON/TARGET
+      delegate_to: [ IP ADDRESS FOR TARGET]
+
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Update apt and install docker-ce
+      apt:
+        name: docker-ce
+        state: latest
+        update_cache: true
+
+    - name: Install Docker Module for Python
+      pip:
+        name: docker
+
+    - name: Start docker Service
+      service:
+        name: docker
+        state: started
+
+    - name: Pull Potainer-ce
+      docker_image:
+        name: portainer/portainer-ce
+        source: pull
+
+    - name: Create portainer container
+      docker_container:
+        name: portainer
+        image: portainer/portainer-ce
+        state: started
+        recreate: yes
+        restart_policy: always
+        published_ports:
+          - "8000:8000"
+          - "9000:9000"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - portainer_data:/data
+
+    # STACK SETUP
+    - name: deploy Docker Compose stack
+      docker_compose:
+       project_src: /home/test/Desktop/docker
+       files:
+       - DOCKER COMPOSE FILE FROM ABOVE
+
+    # FIREWALL SETUP
+    - name: Open Portainer port
+      ufw:
+        state: enabled
+        rule: allow
+        port: "9000"
+        proto: tcp
+
+    - name: "UFW - Allow HTTP on port 80"
+      ufw:
+        rule: allow
+        port: 80
+        proto: tcp 
+
+# INSTALL VPN
+
+    - name: apt-get stuff
+     apt: name={{ item }} state=present update_cache=yes cache_valid_time=3600
+     with_items:
+       - openvpn
+       - unzip
+       - upstart
+
+    - name: wget vpn configs
+      get_url: url=https://www.privateinternetaccess.com/openvpn/openvpn.zip dest=/etc/openvpn
+
+    - name: extract vpn configs
+      unarchive: src=/etc/openvpn/openvpn.zip dest=/etc/openvpn copy=no
+
+    - name: deploy auth file
+      template: src=etc/openvpn/creds.txt dest=/etc/openvpn/creds.txt    # MAKE SURE YOUR SOURCE LOCATION MATCHES WHERE YOU PUT THE CREDS.TXT
+
+    - name: gather vpn configs
+      shell: ls /etc/openvpn/*ovpn
+      register: vpn_confs
+
+    - name: embed creds to all open vpn configs
+      lineinfile: line="auth-user-pass /etc/openvpn/creds.txt" regexp="auth-user-pass" dest="{{ item }}"
+      with_items:
+        - "{{ vpn_confs.stdout.splitlines() }}"
+
+    - name: deploy init file
+      template: src=etc/init/openvpn.conf dest=/etc/init/openvpn.conf
+
+    - name: verify the init file
+      sudo: no
+      changed_when: false
+      shell: init-checkconf -d /etc/init/openvpn.conf
