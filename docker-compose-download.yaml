@@ -1,0 +1,87 @@
+version: '2.1'
+
+services:
+
+# Downloaders
+  qbittorrent: # https://hub.docker.com/r/linuxserver/qbittorrent (TV)
+    image: lscr.io/linuxserver/qbittorrent
+    container_name: qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+      - WEBUI_PORT=8080
+    volumes:
+      - /Documents/Configurations/qbittorrent:/config
+      - /Desktop/qbittorrent:/downloads
+    ports:
+      - 6881:6881
+      - 6881:6881/udp
+      - 8080:8080
+    restart: always
+
+  qbittorrent: # https://hub.docker.com/r/linuxserver/qbittorrent (TV)
+    image: lscr.io/linuxserver/qbittorrent
+    container_name: qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+      - WEBUI_PORT=8282
+    volumes:
+      - /Documents/Configurations/qbittorrenttv:/config
+      - /path/to/file:/downloads
+    ports:
+      - 6881:6881
+      - 6881:6881/udp
+      - 8080:8080
+    restart: always
+
+# Movies
+  radarr: # https://hub.docker.com/r/linuxserver/radarr
+    image: lscr.io/linuxserver/radarr
+    container_name: radarr
+    environment: 
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    volumes:
+      - /Documents/Configurations/radarr:/config
+      - /path/to/file/downloads
+    ports:
+      - 7878:7878
+    restart: always
+
+# TV Episodes
+  sonarr: # https://hub.docker.com/r/linuxserver/sonarr
+    image: lscr.io/linuxserver/sonarr
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    volumes:
+      - /Documents/Configurations/sonarr:/config
+      - /path/to/file:/downloads
+    ports:
+      - 8989:8989
+    restart: always
+
+# Indexers
+  prowler: # https://hub.docker.com/r/linuxserver/jackett
+    image: lscr.io/linuxserver/prowler:develop
+    container_name: prowler
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+      - AUTO_UPDATE=true
+    volumes:
+      - /Documents/Configurations/prowler:/config
+      - /path/to/file/jackett:/downloads
+    ports:
+      - 9696:9696
+    restart: unless-stopped
+
+
+

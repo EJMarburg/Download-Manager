@@ -1,0 +1,132 @@
+---
+- name: Download Manager
+  hosts: download
+  become: yes
+
+  tasks:
+
+
+    - name: Install prerequisites
+      apt: name={{ item }} update_cache=yes state=latest force_apt_get=yes
+      loop: [ 'aptitude' ]
+
+    - name: Install aptitude
+      apt:
+        name: aptitude
+        state: latest
+        update_cache: true
+
+    - name: Install required system packages
+      apt:
+        pkg:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - python3-pip
+          - virtualenv
+          - python3-setuptools
+        state: latest
+        update_cache: true
+    
+    - name: pip install jsondiff
+      pip:
+        name:
+          - jsondiff
+          - docker-compose
+
+    - name: Create Folder        # USE THIS ONLY IF YOU NEED TO CREATE A FOLDER TO ADD FILES FOR NEXT STEP
+      command: mkdir /home/path/to/stack
+
+    - name: Copy docker stack
+      copy:
+        src: compose.yaml
+        dest: /home/path/to/compose
+
+    - name: Copy docker stack
+      copy:
+        src: movies.yaml
+        dest: /home/path/to/stack
+
+
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Update apt and install docker-ce
+      apt:
+        name: docker-ce
+        state: latest
+        update_cache: true
+
+    - name: Install Docker Module for Python
+      pip:
+        name: docker
+
+    - name: Start docker Service
+      service:
+        name: docker
+        state: started
+
+    - name: Pull Potainer-ce
+      docker_image:
+        name: portainer/portainer-ce
+        source: pull
+
+    - name: Create portainer container
+      docker_container:
+        name: portainer
+        image: portainer/portainer-ce
+        state: started
+        recreate: yes
+        restart_policy: always
+        published_ports:
+          - "8000:8000"
+          - "9000:9000"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - portainer_data:/data
+
+    # STACK SETUP
+    - name: deploy 1st Docker Compose stack
+      docker_compose:
+        project_src: /home/path/to/Compose
+        files:
+          - compose.yaml
+
+    - name: deploy 2nd Docker Compose stack
+      docker_compose:
+        project_src: /home/path/to/stack
+        files:
+          - movies.yaml
+
+
+    # FIREWALL SETUP
+    - name: Open Portainer port
+      ufw:
+        state: enabled
+        rule: allow
+        port: "9000"
+        proto: tcp
+
+    - name: "UFW - Allow HTTP on port 80"
+      ufw:
+        rule: allow
+        port: 80
+        proto: tcp 
+
+# INSTALL VPN
+
+    - name: apt-get stuff
+      apt: name={{ item }} state=present update_cache=yes cache_valid_time=3600
+      with_items:
+        - openvpn
+        - unzip
+
+
